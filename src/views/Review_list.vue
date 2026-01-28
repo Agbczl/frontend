@@ -1,0 +1,188 @@
+<template>
+  <div class="page">
+    <!-- 查询区 -->
+    <el-form :inline="true" class="query-form">
+      <el-form-item label="学生姓名">
+        <el-input v-model="query.username" clearable style="width: 180px" />
+      </el-form-item>
+
+      <el-form-item label="状态">
+        <el-select v-model="query.status" clearable style="width: 160px">
+          <el-option label="待审核" value="待审核" />
+          <el-option label="已通过" value="已通过" />
+          <el-option label="已驳回" value="已驳回" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item>
+        <el-button type="primary" @click="loadData">查询</el-button>
+        <el-button @click="reset">重置</el-button>
+      </el-form-item>
+    </el-form>
+
+    <!-- 表格 -->
+    <el-table :data="list" border stripe v-loading="loading">
+      <el-table-column prop="username" label="学生姓名" width="120" />
+      <el-table-column prop="major" label="专业" width="160" />
+      <el-table-column prop="title" label="申报项目" />
+      <el-table-column prop="category" label="类别" width="120" />
+      <el-table-column prop="score" label="分值" width="80" />
+
+      <el-table-column label="状态" width="100">
+        <template #default="{ row }">
+          <el-tag
+            :type="
+              row.status === '待审核' ? 'warning' : row.status === '已通过' ? 'success' : 'danger'
+            "
+          >
+            {{ row.status }}
+          </el-tag>
+        </template>
+      </el-table-column>
+
+      <el-table-column prop="createTime" label="提交时间" width="180" />
+
+      <el-table-column label="操作" width="240">
+        <template #default="{ row }">
+          <el-button size="small" @click="showDetail(row)">详情</el-button>
+
+          <el-button
+            v-if="row.status === '待审核'"
+            size="small"
+            type="success"
+            @click="review(row.id, '已通过')"
+            >通过</el-button
+          >
+
+          <el-button
+            v-if="row.status === '待审核'"
+            size="small"
+            type="danger"
+            @click="review(row.id, '已驳回')"
+            >驳回</el-button
+          >
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <!-- 详情 Drawer -->
+    <el-drawer v-model="detailVisible" title="申报详情" size="45%">
+      <el-descriptions :column="1" border>
+        <el-descriptions-item label="学生姓名">{{ current.username }}</el-descriptions-item>
+        <el-descriptions-item label="专业">{{ current.major }}</el-descriptions-item>
+        <el-descriptions-item label="申报项目">{{ current.title }}</el-descriptions-item>
+        <el-descriptions-item label="类别">{{ current.category }}</el-descriptions-item>
+        <el-descriptions-item label="分值">{{ current.score }}</el-descriptions-item>
+
+        <el-descriptions-item label="说明">
+          <div class="desc">{{ current.description }}</div>
+        </el-descriptions-item>
+
+        <!-- ⭐ 图片大图展示 -->
+        <el-descriptions-item label="佐证材料">
+          <template v-if="imageList.length">
+            <el-image
+              v-for="(url, i) in imageList"
+              :key="i"
+              :src="url"
+              class="material-img"
+              fit="contain"
+              :preview-src-list="imageList"
+              preview-teleported
+            />
+          </template>
+          <span v-else class="empty">暂无材料</span>
+        </el-descriptions-item>
+
+        <el-descriptions-item label="状态">{{ current.status }}</el-descriptions-item>
+      </el-descriptions>
+    </el-drawer>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, computed, onMounted } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import request from "../api/request";
+
+const query = reactive({ username: "", status: "" });
+const list = ref([]);
+const loading = ref(false);
+
+const detailVisible = ref(false);
+const current = reactive({});
+
+/* ⭐ 后端地址（按你的环境改） */
+const BASE_URL = "http://localhost:8080";
+
+/* ⭐ 图片列表：兜底 + 补全 URL */
+const imageList = computed(() => {
+  if (!Array.isArray(current.imageList)) return [];
+  return current.imageList.map((url) => (url.startsWith("http") ? url : BASE_URL + url));
+});
+
+/* 列表 */
+const loadData = async () => {
+  loading.value = true;
+  try {
+    const res = await request.get("/list", { params: query });
+    if (res.data.code === 1) {
+      list.value = res.data.data || [];
+    } else {
+      ElMessage.error(res.data.msg || "查询失败");
+    }
+  } finally {
+    loading.value = false;
+  }
+};
+
+const reset = () => {
+  query.username = "";
+  query.status = "";
+  loadData();
+};
+
+/* ⭐ 详情：直接用 row（不要清空 imageList） */
+const showDetail = (row) => {
+  Object.assign(current, row);
+  detailVisible.value = true;
+};
+
+/* 审核 */
+const review = (id, status) => {
+  ElMessageBox.confirm("确认操作？", "提示").then(async () => {
+    const res = await request.put("/review", { id, status });
+    if (res.data.code === 1) {
+      ElMessage.success("操作成功");
+      loadData();
+    }
+  });
+};
+
+onMounted(loadData);
+</script>
+
+<style scoped>
+.page {
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+}
+
+.material-img {
+  width: 100%;
+  max-height: 520px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: #fafafa;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+.desc {
+  white-space: pre-wrap;
+}
+
+.empty {
+  color: #999;
+}
+</style>
