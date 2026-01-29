@@ -3,12 +3,12 @@
     <div class="profile-card">
       <!-- 左侧身份区 -->
       <div class="left">
-        <el-avatar :size="96" icon="UserFilled" />
+        <el-avatar :size="96" icon="UserFilled" class="avatar" />
         <h3 class="name">{{ user.name }}</h3>
 
-        <p class="account" v-if="accountLabel">{{ accountLabel }}：{{ user.account }}</p>
+        <!-- ✅ 已移除：不再显示 account（学号/工号） -->
 
-        <el-tag :type="user.role === 'student' ? 'info' : 'success'">
+        <el-tag :type="user.role === 'student' ? 'info' : 'success'" class="role-tag">
           {{ roleText }}
         </el-tag>
       </div>
@@ -20,10 +20,6 @@
             {{ user.name }}
           </el-descriptions-item>
 
-          <el-descriptions-item v-if="accountLabel" :label="accountLabel">
-            {{ user.account }}
-          </el-descriptions-item>
-
           <!-- 学生专属 -->
           <el-descriptions-item v-if="user.role === 'student'" label="专业">
             {{ user.major || "—" }}
@@ -33,11 +29,6 @@
             {{ user.grade || "—" }}
           </el-descriptions-item>
 
-          <!-- 教师专属 -->
-          <el-descriptions-item v-if="user.role === 'teacher'" label="职称">
-            {{ user.title || "—" }}
-          </el-descriptions-item>
-
           <el-descriptions-item label="角色">
             {{ roleText }}
           </el-descriptions-item>
@@ -45,8 +36,10 @@
 
         <!-- 操作区 -->
         <div class="actions">
-          <el-button type="primary" @click="changePassword"> 修改密码 </el-button>
-          <el-button type="danger" @click="logout"> 退出登录 </el-button>
+          <el-button type="primary" @click="changePassword" class="action-btn">
+            修改密码
+          </el-button>
+          <el-button type="danger" @click="logout" class="action-btn"> 退出登录 </el-button>
         </div>
       </div>
     </div>
@@ -54,55 +47,62 @@
 </template>
 
 <script setup>
-import { computed, reactive } from "vue";
+import { reactive, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessageBox, ElMessage } from "element-plus";
+import { ElMessageBox } from "element-plus";
+import request from "../api/request";
 
 const router = useRouter();
 
-/**
- * 实际项目中：
- * 这里直接换成接口 /me
- */
-const role = localStorage.getItem("role") || "student";
-const username = localStorage.getItem("username") || "";
-
+/** 当前登录用户（真实数据） */
 const user = reactive({
-  name: role === "teacher" ? "教师用户" : "学生用户",
-  role,
-  account: username,
-
-  // 学生字段
-  major: role === "student" ? "计算机科学与技术" : "",
-  grade: role === "student" ? "2024级" : "",
-
-  // 教师字段
-  title: role === "teacher" ? "讲师" : "",
+  name: "",
+  role: "",
+  account: "", // 保留数据但不显示
+  major: "",
+  grade: "",
+  title: "",
 });
 
-/** 学号 / 工号标签 */
+/** 从后端加载 */
+const loadUser = async () => {
+  const res = await request.get("/me");
+  if (res.data.code === 1) {
+    const u = res.data.data;
+
+    user.name = u.username;
+    user.role = u.role;
+    user.account = u.username; // 数据仍会加载，但前端不渲染
+
+    user.major = u.major;
+    user.grade = u.grade;
+    user.title = u.title;
+  }
+};
+
+onMounted(loadUser);
+
+/** 标签（已不再用于显示，但保留计算属性以防他用） */
 const accountLabel = computed(() => {
   if (user.role === "student") return "学号";
   if (user.role === "teacher") return "工号";
   return "";
 });
 
-/** 身份文本 */
 const roleText = computed(() => {
   return user.role === "student" ? "学生" : "教师";
 });
 
-const changePassword = () => {
-  ElMessage.info("修改密码功能待接入后端");
-};
-
 const logout = () => {
-  ElMessageBox.confirm("确认退出登录？", "提示", {
-    type: "warning",
-  }).then(() => {
+  ElMessageBox.confirm("确认退出登录？", "提示").then(() => {
     localStorage.clear();
     router.replace("/login");
   });
+};
+
+// 占位函数（您可能已有实现）
+const changePassword = () => {
+  // TODO: 实现修改密码逻辑
 };
 </script>
 
@@ -111,40 +111,59 @@ const logout = () => {
 .profile-page {
   display: flex;
   justify-content: center;
+  padding: 24px;
 }
 
 /* 主卡片 */
 .profile-card {
   display: flex;
   gap: 40px;
-
   width: 900px;
-  padding: 28px;
-
-  background: rgba(255, 255, 255, 0.75);
+  padding: 32px;
+  background: rgba(255, 255, 255, 0.85); /* 微调透明度，更通透 */
   backdrop-filter: blur(12px);
-
   border-radius: 16px;
   box-shadow:
-    0 18px 45px rgba(0, 0, 0, 0.18),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+    0 18px 45px rgba(0, 0, 0, 0.15),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.profile-card:hover {
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.8);
 }
 
 /* 左侧 */
 .left {
   width: 220px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.avatar {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s ease;
+}
+.avatar:hover {
+  transform: scale(1.03);
 }
 
 .name {
   margin-top: 16px;
   font-size: 18px;
   font-weight: 600;
+  color: #333;
 }
 
-.account {
-  margin: 8px 0;
-  color: #666;
+.role-tag {
+  margin-top: 12px;
+  font-weight: 500;
 }
 
 /* 右侧 */
@@ -157,5 +176,16 @@ const logout = () => {
   margin-top: 24px;
   display: flex;
   gap: 16px;
+}
+
+.action-btn {
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 </style>

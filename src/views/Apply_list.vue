@@ -44,7 +44,7 @@
           </el-button>
 
           <el-button
-            v-if="row.status === '待审核'"
+            v-if="row.status === '待审核' || row.status === '已通过'"
             size="small"
             type="danger"
             @click="remove(row.id)"
@@ -67,6 +67,14 @@
         </el-descriptions-item>
 
         <el-descriptions-item label="状态">{{ current.status }}</el-descriptions-item>
+        <el-descriptions-item label="老师意见">
+          <template v-if="current.teacherComment">
+            <div class="teacher-comment">
+              {{ current.teacherComment }}
+            </div>
+          </template>
+          <el-empty v-else description="暂无老师意见" :image-size="60" />
+        </el-descriptions-item>
 
         <!-- ⭐ 新增：佐证材料 -->
         <el-descriptions-item label="佐证材料">
@@ -212,6 +220,7 @@ const showDetail = (row) => {
   Object.assign(current, {
     ...row,
     imageList: Array.isArray(row.imageList) ? row.imageList : [],
+    teacherComment: row.teacherComment || "",
   });
   detailVisible.value = true;
 };
@@ -296,6 +305,17 @@ onMounted(loadData);
 </script>
 
 <style scoped>
+/* 老师意见样式 */
+.teacher-comment {
+  padding: 10px 14px;
+  background-color: #f0f7ff;
+  border-left: 4px solid #67c23a;
+  border-radius: 0 6px 6px 0;
+  line-height: 1.6;
+  color: #2c3e50;
+  white-space: pre-wrap;
+}
+
 .page {
   padding: 20px;
   min-height: calc(100vh - 40px);

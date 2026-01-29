@@ -42,25 +42,18 @@
 
       <el-table-column prop="createTime" label="提交时间" width="180" />
 
-      <el-table-column label="操作" width="240">
+      <el-table-column label="操作" width="180">
         <template #default="{ row }">
           <el-button size="small" @click="showDetail(row)">详情</el-button>
 
           <el-button
             v-if="row.status === '待审核'"
             size="small"
-            type="success"
-            @click="review(row.id, '已通过')"
-            >通过</el-button
+            type="primary"
+            @click="openReview(row)"
           >
-
-          <el-button
-            v-if="row.status === '待审核'"
-            size="small"
-            type="danger"
-            @click="review(row.id, '已驳回')"
-            >驳回</el-button
-          >
+            审核
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -78,7 +71,6 @@
           <div class="desc">{{ current.description }}</div>
         </el-descriptions-item>
 
-        <!-- ⭐ 图片大图展示 -->
         <el-descriptions-item label="佐证材料">
           <template v-if="imageList.length">
             <el-image
@@ -94,15 +86,45 @@
           <span v-else class="empty">暂无材料</span>
         </el-descriptions-item>
 
+        <el-descriptions-item label="教师意见">
+          <span>{{ current.teacherComment || "暂无教师意见" }}</span>
+        </el-descriptions-item>
+
         <el-descriptions-item label="状态">{{ current.status }}</el-descriptions-item>
       </el-descriptions>
     </el-drawer>
+
+    <!-- 审核弹窗 -->
+    <el-dialog v-model="reviewVisible" title="审核申报" width="520px">
+      <el-form :model="reviewForm" label-width="90px">
+        <el-form-item label="审核结果">
+          <el-radio-group v-model="reviewForm.status">
+            <el-radio label="已通过">通过</el-radio>
+            <el-radio label="已驳回">驳回</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="教师意见">
+          <el-input
+            v-model="reviewForm.teacherComment"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入审核意见（可选）"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="reviewVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitReview">提交</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage } from "element-plus";
 import request from "../api/request";
 
 const query = reactive({ username: "", status: "" });
@@ -110,26 +132,29 @@ const list = ref([]);
 const loading = ref(false);
 
 const detailVisible = ref(false);
+const reviewVisible = ref(false);
+
 const current = reactive({});
 
-/* ⭐ 后端地址（按你的环境改） */
+const reviewForm = reactive({
+  id: null,
+  status: "已通过",
+  teacherComment: "",
+});
+
 const BASE_URL = "http://localhost:8080";
 
-/* ⭐ 图片列表：兜底 + 补全 URL */
 const imageList = computed(() => {
   if (!Array.isArray(current.imageList)) return [];
   return current.imageList.map((url) => (url.startsWith("http") ? url : BASE_URL + url));
 });
 
-/* 列表 */
 const loadData = async () => {
   loading.value = true;
   try {
     const res = await request.get("/list", { params: query });
     if (res.data.code === 1) {
       list.value = res.data.data || [];
-    } else {
-      ElMessage.error(res.data.msg || "查询失败");
     }
   } finally {
     loading.value = false;
@@ -142,21 +167,27 @@ const reset = () => {
   loadData();
 };
 
-/* ⭐ 详情：直接用 row（不要清空 imageList） */
 const showDetail = (row) => {
   Object.assign(current, row);
   detailVisible.value = true;
 };
 
-/* 审核 */
-const review = (id, status) => {
-  ElMessageBox.confirm("确认操作？", "提示").then(async () => {
-    const res = await request.put("/review", { id, status });
-    if (res.data.code === 1) {
-      ElMessage.success("操作成功");
-      loadData();
-    }
-  });
+const openReview = (row) => {
+  reviewForm.id = row.id;
+  reviewForm.status = "已通过";
+  reviewForm.teacherComment = "";
+  reviewVisible.value = true;
+};
+
+const submitReview = async () => {
+  const res = await request.put("/review", reviewForm);
+  if (res.data.code === 1) {
+    ElMessage.success("审核成功");
+    reviewVisible.value = false;
+    loadData();
+  } else {
+    ElMessage.error(res.data.msg || "审核失败");
+  }
 };
 
 onMounted(loadData);
