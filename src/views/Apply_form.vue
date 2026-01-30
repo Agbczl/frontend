@@ -3,22 +3,40 @@
     <h2 class="title">新增综测加分申报</h2>
 
     <el-form label-width="120px">
+      <!-- 模块 -->
+      <el-form-item label="所属模块" required>
+        <el-select v-model="form.module" placeholder="请选择模块" style="width: 100%">
+          <el-option label="M1 思想品德" value="M1" />
+          <el-option label="M2 学业发展" value="M2" />
+          <el-option label="M3 体育健康" value="M3" />
+          <el-option label="M4 文化艺术" value="M4" />
+          <el-option label="M5 社会服务" value="M5" />
+        </el-select>
+      </el-form-item>
+
+      <!-- 分类 -->
+      <el-form-item label="加分类别" required>
+        <el-select
+          v-model="form.category"
+          placeholder="请选择类别"
+          style="width: 100%"
+          :disabled="!categoryOptions.length"
+        >
+          <el-option v-for="item in categoryOptions" :key="item" :label="item" :value="item" />
+        </el-select>
+      </el-form-item>
+
+      <!-- 标题 -->
       <el-form-item label="申报标题" required>
         <el-input v-model="form.title" placeholder="请输入申报标题" />
       </el-form-item>
 
-      <el-form-item label="加分类别" required>
-        <el-select v-model="form.category" placeholder="请选择类别" style="width: 100%">
-          <el-option label="竞赛获奖" value="竞赛获奖" />
-          <el-option label="科研项目" value="科研项目" />
-          <el-option label="社会实践" value="社会实践" />
-        </el-select>
-      </el-form-item>
-
+      <!-- 分值 -->
       <el-form-item label="申请分值">
         <el-input-number v-model="form.score" :min="0" :max="10" />
       </el-form-item>
 
+      <!-- 说明 -->
       <el-form-item label="项目说明">
         <el-input
           v-model="form.description"
@@ -28,6 +46,7 @@
         />
       </el-form-item>
 
+      <!-- 佐证材料（⚠️ 原逻辑完整保留） -->
       <el-form-item label="佐证材料">
         <el-upload
           action="http://localhost:8080/upload"
@@ -44,6 +63,7 @@
         </el-upload>
       </el-form-item>
 
+      <!-- 操作 -->
       <el-form-item>
         <el-button type="primary" :loading="submitting" @click="submit"> 提交申报 </el-button>
         <el-button @click="reset">重置</el-button>
@@ -53,37 +73,47 @@
 </template>
 
 <script setup>
-import { reactive, ref } from "vue";
+import { reactive, ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
+import { Plus } from "@element-plus/icons-vue";
 import request from "../api/request";
 
 const router = useRouter();
 
-/* ================= 状态控制 ================= */
+/* ================= 上传状态（原逻辑） ================= */
 
-// el-upload 展示用
 const fileList = ref([]);
-
-// 是否正在上传图片
 const uploading = ref(false);
-
-// 是否正在提交表单
 const submitting = ref(false);
 
-/* ================= 表单数据 ================= */
+/* ================= 表单数据（⚠️ imageList 必须一直存在） ================= */
 
 const form = reactive({
   title: "",
+  module: "",
   category: "",
   score: 0,
   description: "",
-  imageList: [], // ⭐最终提交给后端的图片路径数组
+  imageList: [], // ⭐ 关键：不能删、不能替换
 });
 
-/* ================= 上传相关 ================= */
+/* ================= 分类映射 ================= */
 
-// 上传前
+const categoryMap = {
+  M1: ["思想品德", "班级测评"],
+  M2: ["学习成绩", "创新实践能力", "外语能力"],
+  M3: ["体质健康测试", "日常体育锻炼", "体育赛事"],
+  M4: ["文化艺术活动", "文化艺术比赛", "文化艺术作品"],
+  M5: ["公益劳动", "学生社会工作", "社会实践", "志愿服务"],
+};
+
+const categoryOptions = computed(() => {
+  return categoryMap[form.module] || [];
+});
+
+/* ================= 上传相关（⚠️ 原逻辑未改） ================= */
+
 const beforeUpload = (file) => {
   const isImage = file.type.startsWith("image/");
   const isLt5M = file.size / 1024 / 1024 < 5;
@@ -97,10 +127,10 @@ const beforeUpload = (file) => {
     return false;
   }
 
+  uploading.value = true;
   return true;
 };
 
-// 上传成功
 const handleUploadSuccess = (response, file) => {
   uploading.value = false;
 
@@ -110,7 +140,6 @@ const handleUploadSuccess = (response, file) => {
   }
 
   response.data.forEach((url) => {
-    // 防止重复
     if (!form.imageList.includes(url)) {
       form.imageList.push(url);
       fileList.value.push({
@@ -121,13 +150,11 @@ const handleUploadSuccess = (response, file) => {
   });
 };
 
-// 上传失败
 const handleUploadError = () => {
   uploading.value = false;
   ElMessage.error("图片上传失败，请重试");
 };
 
-// 删除图片
 const handleRemove = (file) => {
   const url = file.url;
   form.imageList = form.imageList.filter((item) => item !== url);
@@ -137,32 +164,32 @@ const handleRemove = (file) => {
 
 const reset = () => {
   form.title = "";
+  form.module = "";
   form.category = "";
   form.score = 0;
   form.description = "";
-  form.imageList = [];
+  form.imageList.length = 0; // ⭐ 正确清空方式
   fileList.value = [];
 };
 
 const submit = async () => {
-  if (!form.title || !form.category) {
+  if (!form.module || !form.category || !form.title) {
     ElMessage.warning("请填写完整信息");
     return;
   }
 
   if (uploading.value) {
-    ElMessage.warning("图片正在上传，请等待上传完成");
+    ElMessage.warning("图片正在上传，请稍候");
     return;
   }
 
   submitting.value = true;
-
   try {
     await request.put("/insert", form);
     ElMessage.success("申报提交成功");
     router.replace("/apply");
-  } catch (e) {
-    ElMessage.error("提交失败，请重试");
+  } catch {
+    ElMessage.error("提交失败");
   } finally {
     submitting.value = false;
   }
@@ -174,11 +201,9 @@ const submit = async () => {
   max-width: 720px;
   margin: 40px auto;
   padding: 28px;
-
   background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(10px);
   border-radius: 14px;
-
   box-shadow:
     0 16px 40px rgba(0, 0, 0, 0.18),
     inset 0 0 0 1px rgba(255, 255, 255, 0.6);

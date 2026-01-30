@@ -145,8 +145,18 @@ const reviewForm = reactive({
 const BASE_URL = "http://localhost:8080";
 
 const imageList = computed(() => {
-  if (!Array.isArray(current.imageList)) return [];
-  return current.imageList.map((url) => (url.startsWith("http") ? url : BASE_URL + url));
+  if (Array.isArray(current.imageList) && current.imageList.length > 0) {
+    return current.imageList.map((url) => (url.startsWith("http") ? url : BASE_URL + url));
+  }
+
+  if (current.imageListStr) {
+    return current.imageListStr
+      .split(",")
+      .filter(Boolean)
+      .map((url) => (url.startsWith("http") ? url : BASE_URL + url));
+  }
+
+  return [];
 });
 
 const loadData = async () => {
@@ -168,7 +178,12 @@ const reset = () => {
 };
 
 const showDetail = (row) => {
-  Object.assign(current, row);
+  Object.assign(current, {
+    ...row,
+    imageList: Array.isArray(row.imageList) ? row.imageList : [],
+    imageListStr: row.imageListStr || null,
+    teacherComment: row.teacherComment || "",
+  });
   detailVisible.value = true;
 };
 

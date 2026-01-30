@@ -10,6 +10,7 @@ import tDash_board from "@/views/tDash_board.vue";
 import Teacher_layout from "@/views/Teacher_layout.vue";
 import Guide_first from "@/views/Guide_first.vue";
 import person from "@/views/Pro_file.vue";
+import scores from "@/views/score.vue";
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -72,6 +73,11 @@ const router = createRouter({
           path: "guide",
           name: "guidefirst",
           component: Guide_first,
+        },
+        {
+          path: "score",
+          name: "score",
+          component: scores,
         },
       ],
     },

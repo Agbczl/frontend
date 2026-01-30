@@ -20,7 +20,7 @@
           <el-menu-item index="/apply">我的申报</el-menu-item>
           <el-menu-item index="/add">新增申报</el-menu-item>
         </el-sub-menu>
-
+        <el-menu-item index="/score" v-if="role === 'student'"> 综测成绩 </el-menu-item>
         <el-menu-item index="/personal">个人中心</el-menu-item>
         <el-menu-item index="/guide">申报须知</el-menu-item>
       </el-menu>
@@ -46,6 +46,7 @@
 <script setup>
 import { useRoute } from "vue-router";
 const route = useRoute();
+const role = localStorage.getItem("role");
 </script>
 
 <style scoped>
